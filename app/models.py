@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, DateTime, ForeignKey, Enum
+from sqlalchemy import Column, Integer, String, Boolean, DateTime, Date, Time, ForeignKey, Enum
 from sqlalchemy.orm import relationship
 from sqlalchemy.ext.declarative import declarative_base
 from datetime import datetime
@@ -32,20 +32,33 @@ class ReportType(str, enum.Enum):
     lost = "lost"              # haijulikani iko wapi kabisa
     forgotten = "forgotten"    # anajua eneo (nyumbani/bwenini), kasahau tu
 
+class Exam(Base):
+    __tablename__ = "exams"
+
+    id = Column(Integer, primary_key=True, index=True)
+    course_code = Column(String, nullable=False)
+    room = Column(String, nullable=False)
+    exam_date = Column(Date, nullable=False)
+    exam_time = Column(Time, nullable=False)
+    reports = relationship("IDCardReport", back_populates="exam")
+
 class IDCardReport(Base):
     __tablename__ = "id_card_reports"
 
     id = Column(Integer, primary_key=True, index=True)
     reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    exam_id = Column(Integer, ForeignKey("exams.id"), nullable=False)
     card_owner_reg_no = Column(String, nullable=False)
     status = Column(Enum(ReportStatus), default=ReportStatus.lost, nullable=False)
     report_type = Column(Enum(ReportType), default=ReportType.lost, nullable=False)
     declaration_confirmed = Column(Boolean, default=False, nullable=False)
+    tier = Column(Integer, nullable=False)  # 1, 2, or 3 — computed at creation from lead time before exam
     location = Column(String, nullable=True)
     description = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
     reporter = relationship("User", back_populates="reports")
+    exam = relationship("Exam", back_populates="reports")
 
 class ClearancePass(Base):
     __tablename__ = "clearance_passes"

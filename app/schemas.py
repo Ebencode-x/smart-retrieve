@@ -1,5 +1,5 @@
 from pydantic import BaseModel, EmailStr
-from datetime import datetime
+from datetime import datetime, date, time
 from app.models import UserRole, ReportStatus, ReportType
 
 class UserCreate(BaseModel):
@@ -27,8 +27,24 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
+class ExamCreate(BaseModel):
+    course_code: str
+    room: str
+    exam_date: date
+    exam_time: time
+
+class ExamOut(BaseModel):
+    id: int
+    course_code: str
+    room: str
+    exam_date: date
+    exam_time: time
+    class Config:
+        from_attributes = True
+
 class ReportCreate(BaseModel):
     card_owner_reg_no: str
+    exam_id: int
     status: ReportStatus = ReportStatus.lost
     report_type: ReportType
     declaration_confirmed: bool
@@ -38,10 +54,12 @@ class ReportCreate(BaseModel):
 class ReportOut(BaseModel):
     id: int
     reporter_id: int
+    exam_id: int
     card_owner_reg_no: str
     status: ReportStatus
     report_type: ReportType
     declaration_confirmed: bool
+    tier: int
     location: str | None
     description: str | None
     created_at: datetime
