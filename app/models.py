@@ -59,15 +59,18 @@ class IDCardReport(Base):
     resolved_at = Column(DateTime, nullable=True)
     reporter = relationship("User", back_populates="reports")
     exam = relationship("Exam", back_populates="reports")
+    clearance_passes = relationship("ClearancePass", back_populates="report")
 
 class ClearancePass(Base):
     __tablename__ = "clearance_passes"
 
     id = Column(Integer, primary_key=True, index=True)
     owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    report_id = Column(Integer, ForeignKey("id_card_reports.id"), nullable=False)
     totp_secret = Column(String, nullable=False)
     issued_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
     is_used = Column(Boolean, default=False)
     verified_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
     owner = relationship("User", back_populates="passes", foreign_keys=[owner_id])
+    report = relationship("IDCardReport", back_populates="clearance_passes")

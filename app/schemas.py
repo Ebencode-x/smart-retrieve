@@ -67,8 +67,13 @@ class ReportOut(BaseModel):
     class Config:
         from_attributes = True
 
+class PassGenerate(BaseModel):
+    report_id: int
+
+
 class PassOut(BaseModel):
     id: int
+    report_id: int
     expires_at: datetime
     is_used: bool
     code: str  # inaonyeshwa mara moja tu, wakati wa kuundwa
