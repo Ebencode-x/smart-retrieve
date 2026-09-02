@@ -1,7 +1,6 @@
 from pydantic import BaseModel, EmailStr
 from datetime import datetime
-from app.models import UserRole, ReportStatus
-
+from app.models import UserRole, ReportStatus, ReportType
 
 class UserCreate(BaseModel):
     full_name: str
@@ -10,7 +9,6 @@ class UserCreate(BaseModel):
     password: str
     role: UserRole = UserRole.student
 
-
 class UserOut(BaseModel):
     id: int
     full_name: str
@@ -18,50 +16,46 @@ class UserOut(BaseModel):
     email: EmailStr
     role: UserRole
     created_at: datetime
-
     class Config:
         from_attributes = True
-
 
 class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
-
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
 
-
 class ReportCreate(BaseModel):
     card_owner_reg_no: str
-    status: ReportStatus
+    status: ReportStatus = ReportStatus.lost
+    report_type: ReportType
+    declaration_confirmed: bool
     location: str | None = None
     description: str | None = None
-
 
 class ReportOut(BaseModel):
     id: int
     reporter_id: int
     card_owner_reg_no: str
     status: ReportStatus
+    report_type: ReportType
+    declaration_confirmed: bool
     location: str | None
     description: str | None
     created_at: datetime
-
+    resolved_at: datetime | None
     class Config:
         from_attributes = True
-
 
 class PassOut(BaseModel):
     id: int
     expires_at: datetime
     is_used: bool
     code: str  # inaonyeshwa mara moja tu, wakati wa kuundwa
-
     class Config:
         from_attributes = True
-
 
 class PassVerify(BaseModel):
     pass_id: int

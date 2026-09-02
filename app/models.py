@@ -20,15 +20,17 @@ class User(Base):
     hashed_password = Column(String, nullable=False)
     role = Column(Enum(UserRole), default=UserRole.student, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
-
     reports = relationship("IDCardReport", back_populates="reporter")
     passes = relationship("ClearancePass", back_populates="owner", foreign_keys="ClearancePass.owner_id")
-
 
 class ReportStatus(str, enum.Enum):
     lost = "lost"
     found = "found"
     resolved = "resolved"
+
+class ReportType(str, enum.Enum):
+    lost = "lost"              # haijulikani iko wapi kabisa
+    forgotten = "forgotten"    # anajua eneo (nyumbani/bwenini), kasahau tu
 
 class IDCardReport(Base):
     __tablename__ = "id_card_reports"
@@ -37,13 +39,13 @@ class IDCardReport(Base):
     reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     card_owner_reg_no = Column(String, nullable=False)
     status = Column(Enum(ReportStatus), default=ReportStatus.lost, nullable=False)
+    report_type = Column(Enum(ReportType), default=ReportType.lost, nullable=False)
+    declaration_confirmed = Column(Boolean, default=False, nullable=False)
     location = Column(String, nullable=True)
     description = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
-
     reporter = relationship("User", back_populates="reports")
-
 
 class ClearancePass(Base):
     __tablename__ = "clearance_passes"
@@ -55,5 +57,4 @@ class ClearancePass(Base):
     expires_at = Column(DateTime, nullable=False)
     is_used = Column(Boolean, default=False)
     verified_by_id = Column(Integer, ForeignKey("users.id"), nullable=True)
-
     owner = relationship("User", back_populates="passes", foreign_keys=[owner_id])
