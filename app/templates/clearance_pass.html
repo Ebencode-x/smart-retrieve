@@ -1,0 +1,165 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Clearance Pass - MUST Exam Entry Verification System</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="topbar">
+    <a href="/dashboard" style="color:#fff;">&larr; Dashboard</a>
+    <span>Clearance Pass</span>
+  </nav>
+
+  <div class="container">
+    <div class="card" id="studentSection" style="display:none;">
+      <h1>Generate My Clearance Pass</h1>
+      <p class="subtitle">Only available for Tier 3 (same-day/emergency) reports. Tier 1/2 use the printed gate list instead.</p>
+
+      <label for="report_id">Select your report</label>
+      <select id="report_id">
+        <option value="">Loading your reports...</option>
+      </select>
+
+      <div class="error-msg" id="genErrorMsg"></div>
+      <button id="generateBtn">Generate Pass</button>
+
+      <div id="passResult" style="display:none; margin-top:20px; padding:16px; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0; text-align:center;">
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:6px;">Show this code to the invigilator/security. It is only shown once here.</p>
+        <p style="font-size:32px; font-weight:700; letter-spacing:3px; color:var(--primary);" id="passCode"></p>
+        <p style="font-size:13px; margin-top:8px;">Pass ID: <strong id="passIdOut"></strong></p>
+        <p style="font-size:20px; font-weight:700; margin-top:10px;" id="countdown">10:00</p>
+        <p style="font-size:12px; color:var(--text-muted);">time remaining</p>
+      </div>
+    </div>
+
+    <div class="card" id="securitySection" style="display:none;">
+      <h1>Verify Clearance Pass</h1>
+      <p class="subtitle">Enter the Pass ID and code shown by the student.</p>
+
+      <form id="verifyForm">
+        <label for="pass_id">Pass ID</label>
+        <input type="number" id="pass_id" required>
+
+        <label for="code">Code</label>
+        <input type="text" id="code" required>
+
+        <div class="error-msg" id="verifyErrorMsg"></div>
+        <button type="submit">Verify</button>
+      </form>
+
+      <div id="verifyResult" style="display:none; margin-top:20px; padding:24px; background:#f0fdf4; border-radius:10px; border:2px solid #16a34a; text-align:center;">
+        <p style="font-size:22px; font-weight:800; color:#166534; margin-bottom:6px;">✓ VERIFIED</p>
+        <p style="font-size:16px; font-weight:600; color:var(--primary); margin-bottom:14px;">Well done! All the best with your exam.</p>
+        <p style="font-size:14px;">Card Owner Reg No: <strong id="ownerRegNo"></strong></p>
+        <p style="font-size:14px;">Course: <strong id="examCourse"></strong></p>
+        <p style="font-size:14px;">Room: <strong id="examRoom"></strong></p>
+        <p style="font-size:14px;">Exam Date: <strong id="examDate"></strong></p>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    API.requireAuth();
+    const role = API.getRole();
+    const currentUserId = parseInt(decodeJWT(API.getToken()).sub);
+    let countdownInterval = null;
+
+    if (role === "security") {
+      document.getElementById("securitySection").style.display = "block";
+    } else {
+      document.getElementById("studentSection").style.display = "block";
+      loadMyReports();
+    }
+
+    async function loadMyReports() {
+      const select = document.getElementById("report_id");
+      try {
+        const reports = await API.request("/reports/");
+        const eligible = reports.filter(r => r.reporter_id === currentUserId && r.tier === 3 && !r.resolved_at);
+        if (eligible.length === 0) {
+          select.innerHTML = '<option value="">No eligible Tier 3 reports found</option>';
+          return;
+        }
+        select.innerHTML = eligible.map(r =>
+          `<option value="${r.id}">Report #${r.id} - ${r.card_owner_reg_no} (Exam #${r.exam_id})</option>`
+        ).join("");
+      } catch (err) {
+        select.innerHTML = '<option value="">Failed to load reports</option>';
+      }
+    }
+
+    function startCountdown(expiresAt) {
+      const el = document.getElementById("countdown");
+      if (countdownInterval) clearInterval(countdownInterval);
+      function tick() {
+        const remainingMs = new Date(expiresAt) - new Date();
+        if (remainingMs <= 0) {
+          el.textContent = "Expired";
+          el.style.color = "var(--danger)";
+          clearInterval(countdownInterval);
+          return;
+        }
+        const totalSeconds = Math.floor(remainingMs / 1000);
+        const mins = Math.floor(totalSeconds / 60);
+        const secs = totalSeconds % 60;
+        el.textContent = `${mins}:${secs.toString().padStart(2, "0")}`;
+      }
+      tick();
+      countdownInterval = setInterval(tick, 1000);
+    }
+
+    document.getElementById("generateBtn").addEventListener("click", async () => {
+      const errorMsg = document.getElementById("genErrorMsg");
+      errorMsg.style.display = "none";
+      const reportId = parseInt(document.getElementById("report_id").value);
+      if (!reportId) {
+        errorMsg.textContent = "Please select a report first.";
+        errorMsg.style.display = "block";
+        return;
+      }
+      try {
+        const pass = await API.request("/passes/generate", {
+          method: "POST",
+          body: JSON.stringify({ report_id: reportId })
+        });
+        document.getElementById("passCode").textContent = pass.code;
+        document.getElementById("passIdOut").textContent = pass.id;
+        document.getElementById("passResult").style.display = "block";
+        startCountdown(pass.expires_at);
+      } catch (err) {
+        errorMsg.textContent = err.data?.detail || "Failed to generate pass.";
+        errorMsg.style.display = "block";
+      }
+    });
+
+    document.getElementById("verifyForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errorMsg = document.getElementById("verifyErrorMsg");
+      errorMsg.style.display = "none";
+
+      const payload = {
+        pass_id: parseInt(document.getElementById("pass_id").value),
+        code: document.getElementById("code").value
+      };
+
+      try {
+        const result = await API.request("/passes/verify", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        document.getElementById("ownerRegNo").textContent = result.card_owner_reg_no || "N/A";
+        document.getElementById("examCourse").textContent = result.exam?.course_code || "N/A";
+        document.getElementById("examRoom").textContent = result.exam?.room || "N/A";
+        document.getElementById("examDate").textContent = result.exam?.exam_date || "N/A";
+        document.getElementById("verifyResult").style.display = "block";
+      } catch (err) {
+        errorMsg.textContent = err.data?.detail || "Verification failed.";
+        errorMsg.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>

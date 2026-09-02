@@ -5,7 +5,7 @@ from jose import jwt, JWTError
 
 SECRET_KEY = os.getenv("SECRET_KEY", "b174bef03ae0a5fd5cc89a51e041c10ec5038106094b2642fb79b24a89b30dde")
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # masaa 8, muda wa siku ya masomo
+ACCESS_TOKEN_EXPIRE_MINUTES = 60 * 8  # 8 hours, one academic day
 
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 

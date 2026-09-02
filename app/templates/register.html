@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Register - MUST Exam Entry Verification System</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Create Account</h1>
+      <p class="subtitle">MUST Exam Entry Verification System</p>
+
+      <form id="registerForm">
+        <label for="full_name">Full Name</label>
+        <input type="text" id="full_name" required>
+
+        <label for="registration_number" id="regNumLabel">Registration Number</label>
+        <input type="text" id="registration_number" placeholder="e.g. MUST/CS/2024/001" required>
+
+        <label for="email">Email</label>
+        <input type="email" id="email" required>
+
+        <label for="password">Password</label>
+        <input type="password" id="password" required minlength="6">
+
+        <label for="role">Role</label>
+        <select id="role">
+          <option value="student">Student</option>
+          <option value="security">Security / Invigilator</option>
+        </select>
+
+        <div id="securityCodeGroup" style="display:none;">
+          <label for="security_access_code">Security Access Code</label>
+          <input type="text" id="security_access_code" placeholder="Provided by your administrator">
+        </div>
+
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="success-msg" id="successMsg"></div>
+        <button type="submit">Register</button>
+      </form>
+
+      <div class="link-row">
+        Already have an account? <a href="/">Log In</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    const roleSelect = document.getElementById("role");
+    const regNumLabel = document.getElementById("regNumLabel");
+    const regNumInput = document.getElementById("registration_number");
+    const securityCodeGroup = document.getElementById("securityCodeGroup");
+
+    roleSelect.addEventListener("change", () => {
+      if (roleSelect.value === "security") {
+        regNumLabel.textContent = "Staff ID";
+        regNumInput.placeholder = "e.g. MUST/STAFF/001";
+        securityCodeGroup.style.display = "block";
+      } else {
+        regNumLabel.textContent = "Registration Number";
+        regNumInput.placeholder = "e.g. MUST/CS/2024/001";
+        securityCodeGroup.style.display = "none";
+      }
+    });
+
+    document.getElementById("registerForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errorMsg = document.getElementById("errorMsg");
+      const successMsg = document.getElementById("successMsg");
+      errorMsg.style.display = "none";
+      successMsg.style.display = "none";
+
+      const payload = {
+        full_name: document.getElementById("full_name").value,
+        registration_number: document.getElementById("registration_number").value,
+        email: document.getElementById("email").value,
+        password: document.getElementById("password").value,
+        role: roleSelect.value,
+        security_access_code: document.getElementById("security_access_code").value || null
+      };
+
+      try {
+        await API.request("/auth/register", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        successMsg.textContent = "Account created successfully. Redirecting to login...";
+        successMsg.style.display = "block";
+        setTimeout(() => window.location.href = "/", 1500);
+      } catch (err) {
+        errorMsg.textContent = err.data?.detail || "Registration failed. Please check your details.";
+        errorMsg.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>
