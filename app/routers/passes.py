@@ -19,15 +19,15 @@ def generate_pass(
 ):
     report = db.query(IDCardReport).filter(IDCardReport.id == payload.report_id).first()
     if not report:
-        raise HTTPException(status_code=404, detail="Ripoti haijapatikana")
+        raise HTTPException(status_code=404, detail="Report not found")
     if report.reporter_id != current_user.id:
-        raise HTTPException(status_code=403, detail="Huwezi kutengeneza pass kwa ripoti isiyo yako")
+        raise HTTPException(status_code=403, detail="You cannot generate a pass for a report that is not yours")
     if report.resolved_at is not None:
         raise HTTPException(status_code=400, detail="This report is already resolved")
     if report.tier != 3:
         raise HTTPException(
             status_code=400,
-            detail="Clearance Pass ni kwa Tier 3 pekee — Tier 1/2 zinatumia orodha ya mlangoni",
+            detail="Clearance Pass is for Tier 3 only — Tier 1/2 use the printed gate list",
         )
 
     secret = pyotp.random_base32()
@@ -58,11 +58,11 @@ def verify_pass(
 ):
     clearance_pass = db.query(ClearancePass).filter(ClearancePass.id == payload.pass_id).first()
     if not clearance_pass:
-        raise HTTPException(status_code=404, detail="Pass haijapatikana")
+        raise HTTPException(status_code=404, detail="Pass not found")
     if clearance_pass.is_used:
-        raise HTTPException(status_code=400, detail="Pass hii tayari imetumika")
+        raise HTTPException(status_code=400, detail="This pass has already been used")
     if clearance_pass.expires_at < datetime.utcnow():
-        raise HTTPException(status_code=400, detail="Pass imeisha muda")
+        raise HTTPException(status_code=400, detail="This pass has expired")
 
     totp = pyotp.TOTP(clearance_pass.totp_secret, interval=PASS_VALIDITY_MINUTES * 60)
     if not totp.verify(payload.code, valid_window=1):

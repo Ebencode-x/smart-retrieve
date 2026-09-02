@@ -72,7 +72,7 @@ def resolve_report(
     if report.reporter_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Huna ruhusa ya kufunga ripoti hii",
+            detail="You do not have permission to resolve this report",
         )
     report.status = ReportStatus.resolved
     report.resolved_at = datetime.utcnow()
