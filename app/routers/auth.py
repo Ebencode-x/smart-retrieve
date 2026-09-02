@@ -15,7 +15,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
         (User.email == payload.email) | (User.registration_number == payload.registration_number)
     ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Email au registration number tayari imesajiliwa")
+        raise HTTPException(status_code=400, detail="Email or registration number already registered")
 
     user = User(
         full_name=payload.full_name,
@@ -34,7 +34,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 def login(payload: UserLogin, db: Session = Depends(get_db)):
     user = db.query(User).filter(User.email == payload.email).first()
     if not user or not verify_password(payload.password, user.hashed_password):
-        raise HTTPException(status_code=401, detail="Email au password si sahihi")
+        raise HTTPException(status_code=401, detail="Incorrect email or password")
 
     token = create_access_token(data={"sub": str(user.id), "role": user.role.value})
     return Token(access_token=token)

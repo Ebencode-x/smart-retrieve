@@ -15,7 +15,7 @@ def get_current_user(
 ) -> User:
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Token si sahihi au imeisha muda",
+        detail="Invalid or expired token",
         headers={"WWW-Authenticate": "Bearer"},
     )
     payload = decode_access_token(credentials.credentials)

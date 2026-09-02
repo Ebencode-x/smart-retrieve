@@ -23,7 +23,7 @@ def generate_pass(
     if report.reporter_id != current_user.id:
         raise HTTPException(status_code=403, detail="Huwezi kutengeneza pass kwa ripoti isiyo yako")
     if report.resolved_at is not None:
-        raise HTTPException(status_code=400, detail="Ripoti hii tayari imefungwa")
+        raise HTTPException(status_code=400, detail="This report is already resolved")
     if report.tier != 3:
         raise HTTPException(
             status_code=400,
@@ -66,7 +66,7 @@ def verify_pass(
 
     totp = pyotp.TOTP(clearance_pass.totp_secret, interval=PASS_VALIDITY_MINUTES * 60)
     if not totp.verify(payload.code, valid_window=1):
-        raise HTTPException(status_code=400, detail="Code si sahihi")
+        raise HTTPException(status_code=400, detail="Invalid or expired code")
 
     clearance_pass.is_used = True
     clearance_pass.verified_by_id = current_user.id
@@ -76,7 +76,7 @@ def verify_pass(
     exam = report.exam if report else None
 
     return {
-        "status": "imethibitishwa",
+        "status": "verified",
         "owner_id": clearance_pass.owner_id,
         "report_id": clearance_pass.report_id,
         "card_owner_reg_no": report.card_owner_reg_no if report else None,

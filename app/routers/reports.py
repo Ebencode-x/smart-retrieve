@@ -27,11 +27,11 @@ def create_report(
     if not payload.declaration_confirmed:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Lazima uthibitishe tamko (declaration) kabla ya kuwasilisha ripoti.",
+            detail="You must confirm the declaration before submitting a report.",
         )
     exam = db.query(Exam).filter(Exam.id == payload.exam_id).first()
     if exam is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam haipo")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Exam not found")
     report = IDCardReport(
         reporter_id=current_user.id,
         exam_id=payload.exam_id,
@@ -68,7 +68,7 @@ def resolve_report(
 ):
     report = db.query(IDCardReport).filter(IDCardReport.id == report_id).first()
     if report is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Ripoti haipo")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
     if report.reporter_id != current_user.id:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
