@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard - MUST Exam Entry Verification System</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="topbar">
+    <span>MUST Exam Entry Verification</span>
+    <div>
+      <a href="#" id="logoutLink">Log Out</a>
+    </div>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h2 id="welcomeMsg">Welcome</h2>
+      <p class="subtitle" id="roleMsg"></p>
+    </div>
+
+    <div class="card" id="studentActions" style="display:none;">
+      <h2>Quick Actions</h2>
+      <a href="/report" class="btn">Report Lost / Forgotten ID</a>
+      <a href="/clearance-pass" class="btn btn-accent">My Clearance Pass</a>
+    </div>
+
+    <div class="card" id="securityActions" style="display:none;">
+      <h2>Security Actions</h2>
+      <a href="/exams" class="btn">Create Exam</a>
+      <a href="/exception-list" class="btn btn-secondary">Exception List (Gate)</a>
+      <a href="/clearance-pass" class="btn btn-accent">Verify Clearance Pass</a>
+    </div>
+
+    <div class="card">
+      <h2>Upcoming Exams</h2>
+      <table id="examsTable">
+        <thead>
+          <tr><th>Course</th><th>Room</th><th>Date</th><th>Time</th></tr>
+        </thead>
+        <tbody id="examsBody">
+          <tr><td colspan="4">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    API.requireAuth();
+
+    const role = API.getRole();
+    document.getElementById("roleMsg").textContent = "Role: " + (role === "security" ? "Security / Invigilator" : "Student");
+
+    if (role === "security") {
+      document.getElementById("securityActions").style.display = "block";
+    } else {
+      document.getElementById("studentActions").style.display = "block";
+    }
+
+    document.getElementById("logoutLink").addEventListener("click", (e) => {
+      e.preventDefault();
+      API.logout();
+    });
+
+    async function loadExams() {
+      const tbody = document.getElementById("examsBody");
+      try {
+        const exams = await API.request("/exams/");
+        if (exams.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4">No exams scheduled yet.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = exams.map(ex => `
+          <tr>
+            <td>${ex.course_code}</td>
+            <td>${ex.room}</td>
+            <td>${ex.exam_date}</td>
+            <td>${ex.exam_time}</td>
+          </tr>
+        `).join("");
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="4">Failed to load exams.</td></tr>';
+      }
+    }
+
+    loadExams();
+  </script>
+</body>
+</html>

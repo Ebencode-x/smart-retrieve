@@ -1,0 +1,113 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exams - MUST Exam Entry Verification System</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="topbar">
+    <a href="/dashboard" style="color:#fff;">&larr; Dashboard</a>
+    <span>Exams</span>
+  </nav>
+
+  <div class="container">
+    <div class="card" id="createExamCard" style="display:none;">
+      <h1>Create Exam</h1>
+      <form id="examForm">
+        <label for="course_code">Course Code</label>
+        <input type="text" id="course_code" placeholder="e.g. CS301" required>
+
+        <label for="room">Room</label>
+        <input type="text" id="room" placeholder="e.g. Room A1" required>
+
+        <label for="exam_date">Exam Date</label>
+        <input type="date" id="exam_date" required>
+
+        <label for="exam_time">Exam Time</label>
+        <input type="time" id="exam_time" required>
+
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="success-msg" id="successMsg"></div>
+        <button type="submit">Create Exam</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2>All Exams</h2>
+      <table>
+        <thead>
+          <tr><th>Course</th><th>Room</th><th>Date</th><th>Time</th></tr>
+        </thead>
+        <tbody id="examsBody">
+          <tr><td colspan="4">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    API.requireAuth();
+    const role = API.getRole();
+    if (role === "security") {
+      document.getElementById("createExamCard").style.display = "block";
+    }
+
+    async function loadExams() {
+      const tbody = document.getElementById("examsBody");
+      try {
+        const exams = await API.request("/exams/");
+        if (exams.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4">No exams scheduled yet.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = exams.map(ex => `
+          <tr>
+            <td>${ex.course_code}</td>
+            <td>${ex.room}</td>
+            <td>${ex.exam_date}</td>
+            <td>${ex.exam_time}</td>
+          </tr>
+        `).join("");
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="4">Failed to load exams.</td></tr>';
+      }
+    }
+    loadExams();
+
+    const examForm = document.getElementById("examForm");
+    if (examForm) {
+      examForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorMsg = document.getElementById("errorMsg");
+        const successMsg = document.getElementById("successMsg");
+        errorMsg.style.display = "none";
+        successMsg.style.display = "none";
+
+        const payload = {
+          course_code: document.getElementById("course_code").value,
+          room: document.getElementById("room").value,
+          exam_date: document.getElementById("exam_date").value,
+          exam_time: document.getElementById("exam_time").value
+        };
+
+        try {
+          await API.request("/exams/", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          successMsg.textContent = "Exam created successfully.";
+          successMsg.style.display = "block";
+          examForm.reset();
+          loadExams();
+        } catch (err) {
+          errorMsg.textContent = err.data?.detail || "Failed to create exam.";
+          errorMsg.style.display = "block";
+        }
+      });
+    }
+  </script>
+</body>
+</html>
