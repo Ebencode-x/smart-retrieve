@@ -1,0 +1,7 @@
+{
+  "cleanUrls": true,
+  "rewrites": [
+    { "source": "/clearance-pass", "destination": "/clearance_pass.html" },
+    { "source": "/exception-list", "destination": "/exception_list.html" }
+  ]
+}
