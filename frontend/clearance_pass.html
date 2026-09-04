@@ -95,7 +95,8 @@
       const el = document.getElementById("countdown");
       if (countdownInterval) clearInterval(countdownInterval);
       function tick() {
-        const remainingMs = new Date(expiresAt) - new Date();
+        const utcExpiresAt = expiresAt.endsWith("Z") ? expiresAt : expiresAt + "Z";
+        const remainingMs = new Date(utcExpiresAt) - new Date();
         if (remainingMs <= 0) {
           el.textContent = "Expired";
           el.style.color = "var(--danger)";
