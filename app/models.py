@@ -8,7 +8,11 @@ Base = declarative_base()
 
 class UserRole(str, enum.Enum):
     student = "student"
-    security = "security"
+    security = "security"          # legacy value, kept in DB enum, no longer assigned to new users
+    gate_security = "gate_security"
+    invigilator = "invigilator"
+    exams_officer = "exams_officer"
+    admin = "admin"
 
 class User(Base):
     __tablename__ = "users"
@@ -18,7 +22,7 @@ class User(Base):
     registration_number = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(Enum(UserRole), default=UserRole.student, nullable=False)
+    role = Column(Enum(UserRole, values_callable=lambda e: [v.value for v in e]), default=UserRole.student, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     reports = relationship("IDCardReport", back_populates="reporter")
     passes = relationship("ClearancePass", back_populates="owner", foreign_keys="ClearancePass.owner_id")

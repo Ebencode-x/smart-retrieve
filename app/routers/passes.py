@@ -11,6 +11,35 @@ router = APIRouter(prefix="/passes", tags=["passes"])
 PASS_VALIDITY_MINUTES = 10
 
 
+@router.get("/mine", response_model=list[PassOut])
+def list_my_passes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    passes = (
+        db.query(ClearancePass)
+        .filter(ClearancePass.owner_id == current_user.id)
+        .order_by(ClearancePass.issued_at.desc())
+        .all()
+    )
+    return [
+        PassOut(id=p.id, report_id=p.report_id, expires_at=p.expires_at, is_used=p.is_used, code="")
+        for p in passes
+    ]
+
+
+@router.get("/", response_model=list[PassOut])
+def list_all_passes(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    passes = db.query(ClearancePass).order_by(ClearancePass.issued_at.desc()).all()
+    return [
+        PassOut(id=p.id, report_id=p.report_id, expires_at=p.expires_at, is_used=p.is_used, code="")
+        for p in passes
+    ]
+
+
 @router.post("/generate", response_model=PassOut, status_code=201)
 def generate_pass(
     payload: PassGenerate,
@@ -50,11 +79,30 @@ def generate_pass(
     )
 
 
+@router.delete("/{pass_id}", status_code=204)
+def void_pass(
+    pass_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    clearance_pass = db.query(ClearancePass).filter(ClearancePass.id == pass_id).first()
+    if not clearance_pass:
+        raise HTTPException(status_code=404, detail="Pass not found")
+    is_owner = clearance_pass.owner_id == current_user.id
+    is_admin = current_user.role.value == "admin"
+    if not (is_owner or is_admin):
+        raise HTTPException(status_code=403, detail="You cannot void this pass")
+    if clearance_pass.is_used:
+        raise HTTPException(status_code=400, detail="A used pass cannot be voided")
+    db.delete(clearance_pass)
+    db.commit()
+
+
 @router.post("/verify")
 def verify_pass(
     payload: PassVerify,
     db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("security")),
+    current_user: User = Depends(require_role("invigilator", "admin")),
 ):
     clearance_pass = db.query(ClearancePass).filter(ClearancePass.id == payload.pass_id).first()
     if not clearance_pass:

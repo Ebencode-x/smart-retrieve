@@ -2,7 +2,7 @@ from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, reports, passes, exams
+from app.routers import auth, reports, passes, exams, users
 
 app = FastAPI(
     title="MUST Exam Entry Verification System",
@@ -18,6 +18,7 @@ app.add_middleware(
 )
 
 app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(exams.router)
 app.include_router(reports.router)
 app.include_router(passes.router)

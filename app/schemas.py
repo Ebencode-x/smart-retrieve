@@ -24,6 +24,14 @@ class UserLogin(BaseModel):
     email: EmailStr
     password: str
 
+class ProfileUpdate(BaseModel):
+    full_name: str | None = None
+    email: EmailStr | None = None
+    password: str | None = None
+
+class RoleUpdate(BaseModel):
+    role: UserRole
+
 class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
@@ -33,6 +41,12 @@ class ExamCreate(BaseModel):
     room: str
     exam_date: date
     exam_time: time
+
+class ExamUpdate(BaseModel):
+    course_code: str | None = None
+    room: str | None = None
+    exam_date: date | None = None
+    exam_time: time | None = None
 
 class ExamOut(BaseModel):
     id: int
