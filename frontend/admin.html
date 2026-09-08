@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Admin - MUST Exam Entry Verification System</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    .container { max-width: 720px; }
+    .actions-cell { display:flex; gap:6px; flex-wrap:wrap; }
+    .actions-cell select, .actions-cell button { width:auto; padding:6px 8px; margin:0; font-size:13px; }
+    .actions-cell button { background: var(--danger); }
+    .actions-cell button.save { background: var(--primary-light); }
+  </style>
+</head>
+<body>
+  <nav class="topbar">
+    <a href="/dashboard" style="color:#fff;">&larr; Dashboard</a>
+    <span>Admin — Manage Users</span>
+  </nav>
+
+  <div class="container">
+    <div class="card" id="deniedCard" style="display:none;">
+      <h1>Access Denied</h1>
+      <p>This page is restricted to administrators. Redirecting to dashboard...</p>
+    </div>
+
+    <div class="card" id="mainCard" style="display:none;">
+      <h1>All Users</h1>
+      <p class="subtitle">Change a user's role or remove an account. You cannot delete your own account.</p>
+      <button id="exportBtn" class="btn btn-secondary" style="margin-bottom:12px;">Download Users (Excel)</button>
+      <div class="error-msg" id="errorMsg"></div>
+      <div class="success-msg" id="successMsg"></div>
+
+      <table>
+        <thead>
+          <tr><th>Name</th><th>Reg/Staff No</th><th>Email</th><th>Role</th><th>Actions</th></tr>
+        </thead>
+        <tbody id="usersBody">
+          <tr><td colspan="5">Loading...</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    if (API.requireRole(["admin"])) {
+      document.getElementById("mainCard").style.display = "block";
+
+      const currentUserId = parseInt(decodeJWT(API.getToken()).sub);
+      const ROLES = ["student", "gate_security", "invigilator", "exams_officer", "admin"];
+
+      async function loadUsers() {
+        const tbody = document.getElementById("usersBody");
+        tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+        try {
+          const users = await API.request("/users/");
+          if (users.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5">No users found.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = users.map(u => `
+            <tr data-id="${u.id}">
+              <td>${u.full_name}</td>
+              <td>${u.registration_number}</td>
+              <td>${u.email}</td>
+              <td>
+                <select class="roleSelect">
+                  ${ROLES.map(r => `<option value="${r}" ${r === u.role ? "selected" : ""}>${roleLabel(r)}</option>`).join("")}
+                </select>
+              </td>
+              <td class="actions-cell">
+                <button class="save">Save</button>
+                ${u.id === currentUserId ? "" : '<button class="delete">Delete</button>'}
+              </td>
+            </tr>
+          `).join("");
+        } catch (err) {
+          tbody.innerHTML = '<tr><td colspan="5">Failed to load users.</td></tr>';
+        }
+      }
+      loadUsers();
+
+      document.getElementById("usersBody").addEventListener("click", async (e) => {
+        const row = e.target.closest("tr");
+        if (!row) return;
+        const userId = row.dataset.id;
+        const errorMsg = document.getElementById("errorMsg");
+        const successMsg = document.getElementById("successMsg");
+        errorMsg.style.display = "none";
+        successMsg.style.display = "none";
+
+        if (e.target.classList.contains("save")) {
+          const newRole = row.querySelector(".roleSelect").value;
+          try {
+            await API.request(`/users/${userId}/role`, {
+              method: "PATCH",
+              body: JSON.stringify({ role: newRole })
+            });
+            successMsg.textContent = "Role updated successfully.";
+            successMsg.style.display = "block";
+          } catch (err) {
+            errorMsg.textContent = err.data?.detail || "Failed to update role.";
+            errorMsg.style.display = "block";
+          }
+        }
+
+        if (e.target.classList.contains("delete")) {
+          if (!confirm("Delete this user permanently? This cannot be undone.")) return;
+          try {
+            await API.request(`/users/${userId}`, { method: "DELETE" });
+            successMsg.textContent = "User deleted.";
+            successMsg.style.display = "block";
+            loadUsers();
+          } catch (err) {
+            errorMsg.textContent = err.data?.detail || "Failed to delete user.";
+            errorMsg.style.display = "block";
+          }
+        }
+      });
+
+      document.getElementById("exportBtn").addEventListener("click", async () => {
+        const errorMsg = document.getElementById("errorMsg");
+        errorMsg.style.display = "none";
+        try {
+          await API.download("/users/export/xlsx", "users.xlsx");
+        } catch (err) {
+          errorMsg.textContent = "Failed to download file.";
+          errorMsg.style.display = "block";
+        }
+      });
+    } else {
+      document.getElementById("deniedCard").style.display = "block";
+    }
+  </script>
+</body>
+</html>

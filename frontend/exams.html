@@ -5,6 +5,12 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Exams - MUST Exam Entry Verification System</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    .container { max-width: 720px; }
+    .actions-cell { display:flex; gap:6px; flex-wrap:wrap; }
+    .actions-cell button { width:auto; padding:6px 8px; margin:0; font-size:13px; background: var(--text-muted); }
+    .actions-cell button.delete { background: var(--danger); }
+  </style>
 </head>
 <body>
   <nav class="topbar">
@@ -36,12 +42,14 @@
 
     <div class="card">
       <h2>All Exams</h2>
+      <button id="exportBtn" class="btn btn-secondary">Download Schedule (Excel)</button>
+      <div class="error-msg" id="listErrorMsg"></div>
       <table>
         <thead>
-          <tr><th>Course</th><th>Room</th><th>Date</th><th>Time</th></tr>
+          <tr><th>Course</th><th>Room</th><th>Date</th><th>Time</th><th id="actionsHeader" style="display:none;">Actions</th></tr>
         </thead>
         <tbody id="examsBody">
-          <tr><td colspan="4">Loading...</td></tr>
+          <tr><td colspan="5">Loading...</td></tr>
         </tbody>
       </table>
     </div>
@@ -51,8 +59,10 @@
   <script>
     API.requireAuth();
     const role = API.getRole();
-    if (role === "security") {
+    const canManage = role === "exams_officer" || role === "admin";
+    if (canManage) {
       document.getElementById("createExamCard").style.display = "block";
+      document.getElementById("actionsHeader").style.display = "table-cell";
     }
 
     async function loadExams() {
@@ -60,19 +70,23 @@
       try {
         const exams = await API.request("/exams/");
         if (exams.length === 0) {
-          tbody.innerHTML = '<tr><td colspan="4">No exams scheduled yet.</td></tr>';
+          tbody.innerHTML = `<tr><td colspan="${canManage ? 5 : 4}">No exams scheduled yet.</td></tr>`;
           return;
         }
         tbody.innerHTML = exams.map(ex => `
-          <tr>
+          <tr data-id="${ex.id}">
             <td>${ex.course_code}</td>
             <td>${ex.room}</td>
             <td>${ex.exam_date}</td>
             <td>${ex.exam_time}</td>
+            ${canManage ? `<td class="actions-cell">
+              <button class="edit">Edit</button>
+              <button class="delete">Delete</button>
+            </td>` : ""}
           </tr>
         `).join("");
       } catch (err) {
-        tbody.innerHTML = '<tr><td colspan="4">Failed to load exams.</td></tr>';
+        tbody.innerHTML = `<tr><td colspan="${canManage ? 5 : 4}">Failed to load exams.</td></tr>`;
       }
     }
     loadExams();
@@ -108,6 +122,60 @@
         }
       });
     }
+
+    if (canManage) {
+      document.getElementById("examsBody").addEventListener("click", async (e) => {
+        const row = e.target.closest("tr");
+        if (!row) return;
+        const examId = row.dataset.id;
+        const listErrorMsg = document.getElementById("listErrorMsg");
+        listErrorMsg.style.display = "none";
+
+        if (e.target.classList.contains("edit")) {
+          const cells = row.querySelectorAll("td");
+          const course_code = prompt("Course code:", cells[0].textContent);
+          if (course_code === null) return;
+          const room = prompt("Room:", cells[1].textContent);
+          if (room === null) return;
+          const exam_date = prompt("Date (YYYY-MM-DD):", cells[2].textContent);
+          if (exam_date === null) return;
+          const exam_time = prompt("Time (HH:MM:SS):", cells[3].textContent);
+          if (exam_time === null) return;
+          try {
+            await API.request(`/exams/${examId}`, {
+              method: "PUT",
+              body: JSON.stringify({ course_code, room, exam_date, exam_time })
+            });
+            loadExams();
+          } catch (err) {
+            listErrorMsg.textContent = err.data?.detail || "Failed to update exam.";
+            listErrorMsg.style.display = "block";
+          }
+        }
+
+        if (e.target.classList.contains("delete")) {
+          if (!confirm("Delete this exam permanently?")) return;
+          try {
+            await API.request(`/exams/${examId}`, { method: "DELETE" });
+            loadExams();
+          } catch (err) {
+            listErrorMsg.textContent = err.data?.detail || "Failed to delete exam.";
+            listErrorMsg.style.display = "block";
+          }
+        }
+      });
+    }
+
+    document.getElementById("exportBtn").addEventListener("click", async () => {
+      const listErrorMsg = document.getElementById("listErrorMsg");
+      listErrorMsg.style.display = "none";
+      try {
+        await API.download("/exams/export/xlsx", "exam_schedule.xlsx");
+      } catch (err) {
+        listErrorMsg.textContent = "Failed to download file.";
+        listErrorMsg.style.display = "block";
+      }
+    });
   </script>
 </body>
 </html>

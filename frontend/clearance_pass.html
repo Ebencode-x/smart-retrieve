@@ -5,6 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Clearance Pass - MUST Exam Entry Verification System</title>
   <link rel="stylesheet" href="/static/css/style.css">
+  <style>
+    .actions-cell button { width:auto; padding:6px 8px; margin:0; font-size:13px; background: var(--danger); }
+  </style>
 </head>
 <body>
   <nav class="topbar">
@@ -26,15 +29,21 @@
       <button id="generateBtn">Generate Pass</button>
 
       <div id="passResult" style="display:none; margin-top:20px; padding:16px; background:#f0fdf4; border-radius:8px; border:1px solid #bbf7d0; text-align:center;">
-        <p style="font-size:13px; color:var(--text-muted); margin-bottom:6px;">Show this code to the invigilator/security. It is only shown once here.</p>
+        <p style="font-size:13px; color:var(--text-muted); margin-bottom:6px;">Show this code to the invigilator. It is only shown once here.</p>
         <p style="font-size:32px; font-weight:700; letter-spacing:3px; color:var(--primary);" id="passCode"></p>
         <p style="font-size:13px; margin-top:8px;">Pass ID: <strong id="passIdOut"></strong></p>
         <p style="font-size:20px; font-weight:700; margin-top:10px;" id="countdown">10:00</p>
         <p style="font-size:12px; color:var(--text-muted);">time remaining</p>
       </div>
+
+      <h2 style="margin-top:24px;">My Passes</h2>
+      <table>
+        <thead><tr><th>Pass ID</th><th>Report</th><th>Expires</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody id="myPassesBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+      </table>
     </div>
 
-    <div class="card" id="securitySection" style="display:none;">
+    <div class="card" id="invigilatorSection" style="display:none;">
       <h1>Verify Clearance Pass</h1>
       <p class="subtitle">Enter the Pass ID and code shown by the student.</p>
 
@@ -67,11 +76,12 @@
     const currentUserId = parseInt(decodeJWT(API.getToken()).sub);
     let countdownInterval = null;
 
-    if (role === "security") {
-      document.getElementById("securitySection").style.display = "block";
+    if (role === "invigilator" || role === "admin" || role === "security") {
+      document.getElementById("invigilatorSection").style.display = "block";
     } else {
       document.getElementById("studentSection").style.display = "block";
       loadMyReports();
+      loadMyPasses();
     }
 
     async function loadMyReports() {
@@ -90,6 +100,41 @@
         select.innerHTML = '<option value="">Failed to load reports</option>';
       }
     }
+
+    async function loadMyPasses() {
+      const tbody = document.getElementById("myPassesBody");
+      try {
+        const passes = await API.request("/passes/mine");
+        if (passes.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5">No passes generated yet.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = passes.map(p => `
+          <tr data-id="${p.id}">
+            <td>${p.id}</td>
+            <td>#${p.report_id}</td>
+            <td>${new Date(p.expires_at).toLocaleString()}</td>
+            <td>${p.is_used ? "Used" : "Unused"}</td>
+            <td class="actions-cell">${p.is_used ? "-" : '<button class="void">Void</button>'}</td>
+          </tr>
+        `).join("");
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5">Failed to load your passes.</td></tr>';
+      }
+    }
+
+    document.getElementById("myPassesBody").addEventListener("click", async (e) => {
+      if (!e.target.classList.contains("void")) return;
+      const row = e.target.closest("tr");
+      const passId = row.dataset.id;
+      if (!confirm("Void this unused pass? You will need to generate a new one if still needed.")) return;
+      try {
+        await API.request(`/passes/${passId}`, { method: "DELETE" });
+        loadMyPasses();
+      } catch (err) {
+        alert(err.data?.detail || "Failed to void pass.");
+      }
+    });
 
     function startCountdown(expiresAt) {
       const el = document.getElementById("countdown");
@@ -112,55 +157,62 @@
       countdownInterval = setInterval(tick, 1000);
     }
 
-    document.getElementById("generateBtn").addEventListener("click", async () => {
-      const errorMsg = document.getElementById("genErrorMsg");
-      errorMsg.style.display = "none";
-      const reportId = parseInt(document.getElementById("report_id").value);
-      if (!reportId) {
-        errorMsg.textContent = "Please select a report first.";
-        errorMsg.style.display = "block";
-        return;
-      }
-      try {
-        const pass = await API.request("/passes/generate", {
-          method: "POST",
-          body: JSON.stringify({ report_id: reportId })
-        });
-        document.getElementById("passCode").textContent = pass.code;
-        document.getElementById("passIdOut").textContent = pass.id;
-        document.getElementById("passResult").style.display = "block";
-        startCountdown(pass.expires_at);
-      } catch (err) {
-        errorMsg.textContent = err.data?.detail || "Failed to generate pass.";
-        errorMsg.style.display = "block";
-      }
-    });
+    const generateBtn = document.getElementById("generateBtn");
+    if (generateBtn) {
+      generateBtn.addEventListener("click", async () => {
+        const errorMsg = document.getElementById("genErrorMsg");
+        errorMsg.style.display = "none";
+        const reportId = parseInt(document.getElementById("report_id").value);
+        if (!reportId) {
+          errorMsg.textContent = "Please select a report first.";
+          errorMsg.style.display = "block";
+          return;
+        }
+        try {
+          const pass = await API.request("/passes/generate", {
+            method: "POST",
+            body: JSON.stringify({ report_id: reportId })
+          });
+          document.getElementById("passCode").textContent = pass.code;
+          document.getElementById("passIdOut").textContent = pass.id;
+          document.getElementById("passResult").style.display = "block";
+          startCountdown(pass.expires_at);
+          loadMyPasses();
+        } catch (err) {
+          errorMsg.textContent = err.data?.detail || "Failed to generate pass.";
+          errorMsg.style.display = "block";
+        }
+      });
+    }
 
-    document.getElementById("verifyForm").addEventListener("submit", async (e) => {
-      e.preventDefault();
-      const errorMsg = document.getElementById("verifyErrorMsg");
-      errorMsg.style.display = "none";
+    const verifyForm = document.getElementById("verifyForm");
+    if (verifyForm) {
+      verifyForm.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const errorMsg = document.getElementById("verifyErrorMsg");
+        errorMsg.style.display = "none";
 
-      const payload = {
-        pass_id: parseInt(document.getElementById("pass_id").value),
-        code: document.getElementById("code").value
-      };
+        const payload = {
+          pass_id: parseInt(document.getElementById("pass_id").value),
+          code: document.getElementById("code").value
+        };
 
-      try {
-        const result = await API.request("/passes/verify", {
-          method: "POST",
-          body: JSON.stringify(payload)
-        });
-        document.getElementById("ownerRegNo").textContent = result.card_owner_reg_no || "N/A";
-        document.getElementById("examCourse").textContent = result.exam?.course_code || "N/A";
-        document.getElementById("examRoom").textContent = result.exam?.room || "N/A";
-        document.getElementById("examDate").textContent = result.exam?.exam_date || "N/A";
-        document.getElementById("verifyResult").style.display = "block";
-      } catch (err) {
-        errorMsg.textContent = err.data?.detail || "Verification failed.";
-        errorMsg.style.display = "block";
-      }
-    });
+        try {
+          const result = await API.request("/passes/verify", {
+            method: "POST",
+            body: JSON.stringify(payload)
+          });
+          document.getElementById("ownerRegNo").textContent = result.card_owner_reg_no || "N/A";
+          document.getElementById("examCourse").textContent = result.exam?.course_code || "N/A";
+          document.getElementById("examRoom").textContent = result.exam?.room || "N/A";
+          document.getElementById("examDate").textContent = result.exam?.exam_date || "N/A";
+          document.getElementById("verifyResult").style.display = "block";
+        } catch (err) {
+          errorMsg.textContent = err.data?.detail || "Verification failed.";
+          errorMsg.style.display = "block";
+        }
+      });
+    }
   </script>
 </body>
 </html>

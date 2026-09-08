@@ -15,7 +15,7 @@
   <div class="container">
     <div class="card" id="deniedCard" style="display:none;">
       <h1>Access Denied</h1>
-      <p>This page is restricted to security personnel. Redirecting to dashboard...</p>
+      <p>This page is restricted to staff personnel. Redirecting to dashboard...</p>
     </div>
 
     <div class="card" id="mainCard" style="display:none;">
@@ -26,6 +26,9 @@
       <select id="examSelect">
         <option value="">-- choose an exam --</option>
       </select>
+
+      <button id="downloadBtn" class="btn btn-secondary" style="display:none;">Download PDF (for gate)</button>
+      <div class="error-msg" id="errorMsg"></div>
 
       <table>
         <thead>
@@ -48,12 +51,14 @@
   <script>
     API.requireAuth();
     const role = API.getRole();
+    const STAFF_ROLES = ["gate_security", "invigilator", "admin", "security"];
 
-    if (role !== "security") {
+    if (!STAFF_ROLES.includes(role)) {
       document.getElementById("deniedCard").style.display = "block";
       setTimeout(() => { window.location.href = "/dashboard"; }, 2000);
     } else {
       document.getElementById("mainCard").style.display = "block";
+      let selectedExamId = null;
 
       async function loadExams() {
         const select = document.getElementById("examSelect");
@@ -72,9 +77,13 @@
       loadExams();
 
       const tierLabel = { 1: "Tier 1", 2: "Tier 2" };
+      const downloadBtn = document.getElementById("downloadBtn");
 
       document.getElementById("examSelect").addEventListener("change", async (e) => {
         const examId = e.target.value;
+        selectedExamId = examId || null;
+        downloadBtn.style.display = (selectedExamId && (role === "gate_security" || role === "admin" || role === "security")) ? "inline-block" : "none";
+
         const tbody = document.getElementById("listBody");
         if (!examId) {
           tbody.innerHTML = '<tr><td colspan="5">Select an exam to view its exception list.</td></tr>';
@@ -98,6 +107,18 @@
           `).join("");
         } catch (err) {
           tbody.innerHTML = '<tr><td colspan="5">Failed to load exception list.</td></tr>';
+        }
+      });
+
+      downloadBtn.addEventListener("click", async () => {
+        const errorMsg = document.getElementById("errorMsg");
+        errorMsg.style.display = "none";
+        if (!selectedExamId) return;
+        try {
+          await API.download(`/reports/exception-list/${selectedExamId}/pdf`, `exception_list_exam_${selectedExamId}.pdf`);
+        } catch (err) {
+          errorMsg.textContent = err.data?.detail || "Failed to download PDF.";
+          errorMsg.style.display = "block";
         }
       });
     }

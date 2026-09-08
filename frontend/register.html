@@ -28,11 +28,14 @@
         <label for="role">Role</label>
         <select id="role">
           <option value="student">Student</option>
-          <option value="security">Security / Invigilator</option>
+          <option value="gate_security">Gate Security</option>
+          <option value="invigilator">Invigilator</option>
+          <option value="exams_officer">Exams Officer</option>
+          <option value="admin">Administrator</option>
         </select>
 
         <div id="securityCodeGroup" style="display:none;">
-          <label for="security_access_code">Security Access Code</label>
+          <label for="security_access_code">Staff Access Code</label>
           <input type="text" id="security_access_code" placeholder="Provided by your administrator">
         </div>
 
@@ -49,13 +52,14 @@
 
   <script src="/static/js/api.js"></script>
   <script>
+    const STAFF_ROLES = ["gate_security", "invigilator", "exams_officer", "admin"];
     const roleSelect = document.getElementById("role");
     const regNumLabel = document.getElementById("regNumLabel");
     const regNumInput = document.getElementById("registration_number");
     const securityCodeGroup = document.getElementById("securityCodeGroup");
 
     roleSelect.addEventListener("change", () => {
-      if (roleSelect.value === "security") {
+      if (STAFF_ROLES.includes(roleSelect.value)) {
         regNumLabel.textContent = "Staff ID";
         regNumInput.placeholder = "e.g. MUST/STAFF/001";
         securityCodeGroup.style.display = "block";

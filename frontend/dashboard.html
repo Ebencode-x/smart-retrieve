@@ -10,6 +10,7 @@
   <nav class="topbar">
     <span>MUST Exam Entry Verification</span>
     <div>
+      <a href="/profile">My Profile</a>
       <a href="#" id="logoutLink">Log Out</a>
     </div>
   </nav>
@@ -26,10 +27,26 @@
       <a href="/clearance_pass" class="btn btn-accent">My Clearance Pass</a>
     </div>
 
-    <div class="card" id="securityActions" style="display:none;">
-      <h2>Security Actions</h2>
-      <a href="/exams" class="btn">Create Exam</a>
+    <div class="card" id="gateActions" style="display:none;">
+      <h2>Gate Security Actions</h2>
       <a href="/exception_list" class="btn btn-secondary">Exception List (Gate)</a>
+    </div>
+
+    <div class="card" id="invigilatorActions" style="display:none;">
+      <h2>Invigilator Actions</h2>
+      <a href="/clearance_pass" class="btn btn-accent">Verify Clearance Pass</a>
+    </div>
+
+    <div class="card" id="officerActions" style="display:none;">
+      <h2>Exams Officer Actions</h2>
+      <a href="/exams" class="btn">Manage Exams</a>
+    </div>
+
+    <div class="card" id="adminActions" style="display:none;">
+      <h2>Administrator Actions</h2>
+      <a href="/admin" class="btn">Manage Users</a>
+      <a href="/exams" class="btn btn-secondary">Manage Exams</a>
+      <a href="/exception_list" class="btn btn-secondary">Exception List</a>
       <a href="/clearance_pass" class="btn btn-accent">Verify Clearance Pass</a>
     </div>
 
@@ -51,13 +68,18 @@
     API.requireAuth();
 
     const role = API.getRole();
-    document.getElementById("roleMsg").textContent = "Role: " + (role === "security" ? "Security / Invigilator" : "Student");
+    document.getElementById("roleMsg").textContent = "Role: " + roleLabel(role);
 
-    if (role === "security") {
-      document.getElementById("securityActions").style.display = "block";
-    } else {
-      document.getElementById("studentActions").style.display = "block";
-    }
+    const panelByRole = {
+      student: "studentActions",
+      gate_security: "gateActions",
+      invigilator: "invigilatorActions",
+      exams_officer: "officerActions",
+      admin: "adminActions",
+      security: "gateActions" // legacy accounts not yet reassigned
+    };
+    const panelId = panelByRole[role];
+    if (panelId) document.getElementById(panelId).style.display = "block";
 
     document.getElementById("logoutLink").addEventListener("click", (e) => {
       e.preventDefault();
