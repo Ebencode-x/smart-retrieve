@@ -126,7 +126,7 @@
         try {
           await API.download("/users/export/xlsx", "users.xlsx");
         } catch (err) {
-          errorMsg.textContent = "Failed to download file.";
+          errorMsg.textContent = err.data?.detail || "Failed to download file.";
           errorMsg.style.display = "block";
         }
       });
