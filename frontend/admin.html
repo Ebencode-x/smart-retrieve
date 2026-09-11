@@ -6,11 +6,12 @@
   <title>Admin - MUST Exam Entry Verification System</title>
   <link rel="stylesheet" href="/static/css/style.css">
   <style>
-    .container { max-width: 720px; }
+    .container { max-width: 820px; }
     .actions-cell { display:flex; gap:6px; flex-wrap:wrap; }
     .actions-cell select, .actions-cell button { width:auto; padding:6px 8px; margin:0; font-size:13px; }
     .actions-cell button { background: var(--danger); }
     .actions-cell button.save { background: var(--primary-light); }
+    td input { width:100%; padding:6px; font-size:13px; border:1px solid #ddd; border-radius:6px; }
   </style>
 </head>
 <body>
@@ -27,7 +28,7 @@
 
     <div class="card" id="mainCard" style="display:none;">
       <h1>All Users</h1>
-      <p class="subtitle">Change a user's role or remove an account. You cannot delete your own account.</p>
+      <p class="subtitle">Edit a user's name, email or role directly, then Save. You cannot delete your own account.</p>
       <button id="exportBtn" class="btn btn-secondary" style="margin-bottom:12px;">Download Users (Excel)</button>
       <div class="error-msg" id="errorMsg"></div>
       <div class="success-msg" id="successMsg"></div>
@@ -62,9 +63,9 @@
           }
           tbody.innerHTML = users.map(u => `
             <tr data-id="${u.id}">
-              <td>${u.full_name}</td>
+              <td><input class="nameInput" value="${u.full_name}"></td>
               <td>${u.registration_number}</td>
-              <td>${u.email}</td>
+              <td><input class="emailInput" value="${u.email}"></td>
               <td>
                 <select class="roleSelect">
                   ${ROLES.map(r => `<option value="${r}" ${r === u.role ? "selected" : ""}>${roleLabel(r)}</option>`).join("")}
@@ -92,17 +93,26 @@
         successMsg.style.display = "none";
 
         if (e.target.classList.contains("save")) {
+          const newName = row.querySelector(".nameInput").value.trim();
+          const newEmail = row.querySelector(".emailInput").value.trim();
           const newRole = row.querySelector(".roleSelect").value;
+          e.target.disabled = true;
           try {
+            await API.request(`/users/${userId}`, {
+              method: "PATCH",
+              body: JSON.stringify({ full_name: newName, email: newEmail })
+            });
             await API.request(`/users/${userId}/role`, {
               method: "PATCH",
               body: JSON.stringify({ role: newRole })
             });
-            successMsg.textContent = "Role updated successfully.";
+            successMsg.textContent = "User updated successfully.";
             successMsg.style.display = "block";
           } catch (err) {
-            errorMsg.textContent = err.data?.detail || "Failed to update role.";
+            errorMsg.textContent = err.data?.detail || "Failed to update user.";
             errorMsg.style.display = "block";
+          } finally {
+            e.target.disabled = false;
           }
         }
 
