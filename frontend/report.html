@@ -48,6 +48,17 @@
         <button type="submit">Submit Report</button>
       </form>
     </div>
+
+    <div class="card">
+      <h2>My Reports</h2>
+      <p class="subtitle">Made a mistake? You can edit any report here until it's marked resolved.</p>
+      <div class="error-msg" id="myErrorMsg"></div>
+      <div class="success-msg" id="mySuccessMsg"></div>
+      <table>
+        <thead><tr><th>Reg No</th><th>Type</th><th>Tier</th><th>Status</th><th></th></tr></thead>
+        <tbody id="myReportsBody"><tr><td colspan="5">Loading...</td></tr></tbody>
+      </table>
+    </div>
   </div>
 
   <script src="/static/js/api.js"></script>
@@ -92,12 +103,72 @@
           method: "POST",
           body: JSON.stringify(payload)
         });
-        successMsg.textContent = `Report submitted successfully. Tier: ${report.tier}. Redirecting to dashboard...`;
+        successMsg.textContent = `Report submitted successfully. Tier: ${report.tier}.`;
         successMsg.style.display = "block";
-        setTimeout(() => window.location.href = "/dashboard", 2000);
+        document.getElementById("reportForm").reset();
+        loadMyReports();
       } catch (err) {
         errorMsg.textContent = err.data?.detail || "Failed to submit report.";
         errorMsg.style.display = "block";
+      }
+    });
+
+    const myUserId = parseInt(decodeJWT(API.getToken()).sub);
+
+    async function loadMyReports() {
+      const tbody = document.getElementById("myReportsBody");
+      tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+      try {
+        const reports = await API.request("/reports/");
+        const mine = reports.filter(r => r.reporter_id === myUserId);
+        if (mine.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="5">No open reports.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = mine.map(r => `
+          <tr data-id="${r.id}">
+            <td><input class="regEdit" value="${r.card_owner_reg_no}"></td>
+            <td>
+              <select class="typeEdit">
+                <option value="lost" ${r.report_type === "lost" ? "selected" : ""}>Lost</option>
+                <option value="forgotten" ${r.report_type === "forgotten" ? "selected" : ""}>Forgotten</option>
+              </select>
+            </td>
+            <td><span class="badge badge-tier${r.tier}">Tier ${r.tier}</span></td>
+            <td>${r.status}</td>
+            <td class="actions-cell" style="display:flex; gap:6px;">
+              <button class="saveReport" style="width:auto; padding:6px 10px; margin:0; font-size:13px;">Save</button>
+            </td>
+          </tr>
+        `).join("");
+      } catch (err) {
+        tbody.innerHTML = '<tr><td colspan="5">Failed to load your reports.</td></tr>';
+      }
+    }
+    loadMyReports();
+
+    document.getElementById("myReportsBody").addEventListener("click", async (e) => {
+      if (!e.target.classList.contains("saveReport")) return;
+      const row = e.target.closest("tr");
+      const reportId = row.dataset.id;
+      const myErrorMsg = document.getElementById("myErrorMsg");
+      const mySuccessMsg = document.getElementById("mySuccessMsg");
+      myErrorMsg.style.display = "none";
+      mySuccessMsg.style.display = "none";
+      try {
+        await API.request(`/reports/${reportId}`, {
+          method: "PATCH",
+          body: JSON.stringify({
+            card_owner_reg_no: row.querySelector(".regEdit").value,
+            report_type: row.querySelector(".typeEdit").value
+          })
+        });
+        mySuccessMsg.textContent = "Report updated.";
+        mySuccessMsg.style.display = "block";
+        loadMyReports();
+      } catch (err) {
+        myErrorMsg.textContent = err.data?.detail || "Failed to update report.";
+        myErrorMsg.style.display = "block";
       }
     });
   </script>

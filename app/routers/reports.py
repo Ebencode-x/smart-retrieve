@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from app.database import get_db
 from app.models import IDCardReport, User, ReportStatus, Exam
-from app.schemas import ReportCreate, ReportOut
+from app.schemas import ReportCreate, ReportOut, ReportUpdate
 from app.dependencies import get_current_user, require_role
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -80,6 +80,36 @@ def resolve_report(
         )
     report.status = ReportStatus.resolved
     report.resolved_at = datetime.utcnow()
+    db.commit()
+    db.refresh(report)
+    return report
+
+@router.patch("/{report_id}", response_model=ReportOut)
+def update_report(
+    report_id: int,
+    payload: ReportUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """Lets the student who filed the report correct a mistake (e.g. wrong
+    reg no) as long as it hasn't been resolved yet. Editing never changes the
+    tier — tier stays as computed at the original submission time, since it
+    reflects how much notice gate/invigilator staff actually had."""
+    report = db.query(IDCardReport).filter(IDCardReport.id == report_id).first()
+    if report is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Report not found")
+    if report.reporter_id != current_user.id and current_user.role.value != "admin":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You do not have permission to edit this report",
+        )
+    if report.status == ReportStatus.resolved:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="This report is already resolved and can no longer be edited",
+        )
+    for field, value in payload.model_dump(exclude_unset=True).items():
+        setattr(report, field, value)
     db.commit()
     db.refresh(report)
     return report
