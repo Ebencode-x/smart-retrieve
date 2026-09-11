@@ -63,6 +63,32 @@ def update_user_role(
     return user
 
 
+@router.patch("/{user_id}", response_model=UserOut)
+def admin_update_user(
+    user_id: int,
+    payload: ProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("admin")),
+):
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    data = payload.model_dump(exclude_unset=True)
+    if data.get("password"):
+        user.hashed_password = hash_password(data.pop("password"))
+    else:
+        data.pop("password", None)
+    for field, value in data.items():
+        setattr(user, field, value)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Email already in use")
+    db.refresh(user)
+    return user
+
+
 @router.delete("/{user_id}", status_code=204)
 def delete_user(
     user_id: int,
