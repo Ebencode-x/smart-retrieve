@@ -5,10 +5,38 @@ from sqlalchemy.exc import IntegrityError
 from io import BytesIO
 from app.database import get_db
 from app.models import User
-from app.schemas import UserOut, RoleUpdate
-from app.dependencies import require_role
+from app.schemas import UserOut, RoleUpdate, ProfileUpdate
+from app.security import hash_password
+from app.dependencies import require_role, get_current_user
 
 router = APIRouter(prefix="/users", tags=["users"])
+
+
+@router.get("/me", response_model=UserOut)
+def get_my_profile(current_user: User = Depends(get_current_user)):
+    return current_user
+
+
+@router.patch("/me", response_model=UserOut)
+def update_my_profile(
+    payload: ProfileUpdate,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    data = payload.model_dump(exclude_unset=True)
+    if data.get("password"):
+        current_user.hashed_password = hash_password(data.pop("password"))
+    else:
+        data.pop("password", None)
+    for field, value in data.items():
+        setattr(current_user, field, value)
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=409, detail="Email already in use")
+    db.refresh(current_user)
+    return current_user
 
 
 @router.get("/", response_model=list[UserOut])
