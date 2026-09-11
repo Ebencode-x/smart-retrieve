@@ -5,10 +5,8 @@ from sqlalchemy.exc import IntegrityError
 from io import BytesIO
 from app.database import get_db
 from app.models import User
-from app.schemas import UserOut, RoleUpdate, AdminUserUpdate
+from app.schemas import UserOut, RoleUpdate
 from app.dependencies import require_role
-from app.models import UserRole
-from app.schemas import validate_student_regno
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -32,44 +30,6 @@ def update_user_role(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     user.role = payload.role
-    db.commit()
-    db.refresh(user)
-    return user
-
-
-@router.patch("/{user_id}", response_model=UserOut)
-def update_user_profile(
-    user_id: int,
-    payload: AdminUserUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(require_role("admin")),
-):
-    """Full profile edit for admins — name/email/reg-no, not just role.
-    Students still must keep the 14-digit MUST format; staff stay free-text."""
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-
-    data = payload.model_dump(exclude_unset=True)
-    if "registration_number" in data and user.role == UserRole.student:
-        try:
-            validate_student_regno(data["registration_number"])
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=str(e))
-
-    if "email" in data:
-        clash = db.query(User).filter(User.email == data["email"], User.id != user_id).first()
-        if clash:
-            raise HTTPException(status_code=400, detail="Email already in use by another user")
-    if "registration_number" in data:
-        clash = db.query(User).filter(
-            User.registration_number == data["registration_number"], User.id != user_id
-        ).first()
-        if clash:
-            raise HTTPException(status_code=400, detail="Registration number already in use by another user")
-
-    for field, value in data.items():
-        setattr(user, field, value)
     db.commit()
     db.refresh(user)
     return user
