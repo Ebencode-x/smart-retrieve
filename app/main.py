@@ -1,18 +1,31 @@
 from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
-from app.routers import auth, reports, passes, exams
+from fastapi.middleware.cors import CORSMiddleware
+from app.routers import auth, reports, passes, exams, users
 
 app = FastAPI(
     title="MUST Exam Entry Verification System",
     description="Advance exam-entry verification for students with ID card issues. Includes a supporting lost/forgotten ID reporting feature."
 )
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://smart-temporary-exam-ver.vercel.app",
+        "http://localhost:3000",
+        "http://127.0.0.1:5500",
+    ],
+    allow_credentials=False,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(auth.router)
+app.include_router(users.router)
 app.include_router(exams.router)
 app.include_router(reports.router)
 app.include_router(passes.router)
-
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 

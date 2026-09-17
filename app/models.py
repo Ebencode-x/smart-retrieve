@@ -8,7 +8,11 @@ Base = declarative_base()
 
 class UserRole(str, enum.Enum):
     student = "student"
-    security = "security"
+    security = "security"          # legacy value, kept in DB enum, no longer assigned to new users
+    gate_security = "gate_security"
+    invigilator = "invigilator"
+    exams_officer = "exams_officer"
+    admin = "admin"
 
 class User(Base):
     __tablename__ = "users"
@@ -18,7 +22,7 @@ class User(Base):
     registration_number = Column(String, unique=True, index=True, nullable=False)
     email = Column(String, unique=True, nullable=False)
     hashed_password = Column(String, nullable=False)
-    role = Column(Enum(UserRole), default=UserRole.student, nullable=False)
+    role = Column(Enum(UserRole, values_callable=lambda e: [v.value for v in e]), default=UserRole.student, nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)
     reports = relationship("IDCardReport", back_populates="reporter")
     passes = relationship("ClearancePass", back_populates="owner", foreign_keys="ClearancePass.owner_id")
@@ -46,13 +50,13 @@ class IDCardReport(Base):
     __tablename__ = "id_card_reports"
 
     id = Column(Integer, primary_key=True, index=True)
-    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    exam_id = Column(Integer, ForeignKey("exams.id"), nullable=False)
-    card_owner_reg_no = Column(String, nullable=False)
-    status = Column(Enum(ReportStatus), default=ReportStatus.lost, nullable=False)
+    reporter_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    exam_id = Column(Integer, ForeignKey("exams.id"), nullable=False, index=True)
+    card_owner_reg_no = Column(String, nullable=False, index=True)
+    status = Column(Enum(ReportStatus), default=ReportStatus.lost, nullable=False, index=True)
     report_type = Column(Enum(ReportType), default=ReportType.lost, nullable=False)
     declaration_confirmed = Column(Boolean, default=False, nullable=False)
-    tier = Column(Integer, nullable=False)  # 1, 2, or 3 — computed at creation from lead time before exam
+    tier = Column(Integer, nullable=False, index=True)  # 1, 2, or 3 — computed at creation from lead time before exam
     location = Column(String, nullable=True)
     description = Column(String, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -65,8 +69,8 @@ class ClearancePass(Base):
     __tablename__ = "clearance_passes"
 
     id = Column(Integer, primary_key=True, index=True)
-    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    report_id = Column(Integer, ForeignKey("id_card_reports.id"), nullable=False)
+    owner_id = Column(Integer, ForeignKey("users.id"), nullable=False, index=True)
+    report_id = Column(Integer, ForeignKey("id_card_reports.id"), nullable=False, index=True)
     totp_secret = Column(String, nullable=False)
     issued_at = Column(DateTime, default=datetime.utcnow)
     expires_at = Column(DateTime, nullable=False)
