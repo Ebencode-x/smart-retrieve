@@ -67,7 +67,7 @@
     const currentUserId = parseInt(decodeJWT(API.getToken()).sub);
     let countdownInterval = null;
 
-    if (role === "security") {
+    if (role === "invigilator" || role === "admin") {
       document.getElementById("securitySection").style.display = "block";
     } else {
       document.getElementById("studentSection").style.display = "block";

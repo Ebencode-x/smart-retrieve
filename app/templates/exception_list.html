@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Exception List - MUST Exam Entry Verification System</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="topbar">
+    <a href="/dashboard" style="color:#fff;">&larr; Dashboard</a>
+    <span>Exception List</span>
+  </nav>
+
+  <div class="container">
+    <div class="card" id="deniedCard" style="display:none;">
+      <h1>Access Denied</h1>
+      <p>This page is restricted to security personnel. Redirecting to dashboard...</p>
+    </div>
+
+    <div class="card" id="mainCard" style="display:none;">
+      <h1>Exception List</h1>
+      <p>Printed gate list: Tier 1 and Tier 2 pre-registered reports for a selected exam. Tier 3 (same-day/emergency) reports are not shown here &mdash; those students are verified in real time by the invigilator.</p>
+
+      <label for="examSelect">Select Exam</label>
+      <select id="examSelect">
+        <option value="">-- choose an exam --</option>
+      </select>
+
+      <table>
+        <thead>
+          <tr>
+            <th>Reg / Staff No</th>
+            <th>Type</th>
+            <th>Tier</th>
+            <th>Location</th>
+            <th>Reported At</th>
+          </tr>
+        </thead>
+        <tbody id="listBody">
+          <tr><td colspan="5">Select an exam to view its exception list.</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    API.requireAuth();
+    const role = API.getRole();
+
+    if (role !== "security") {
+      document.getElementById("deniedCard").style.display = "block";
+      setTimeout(() => { window.location.href = "/dashboard"; }, 2000);
+    } else {
+      document.getElementById("mainCard").style.display = "block";
+
+      async function loadExams() {
+        const select = document.getElementById("examSelect");
+        try {
+          const exams = await API.request("/exams/");
+          exams.forEach(ex => {
+            const opt = document.createElement("option");
+            opt.value = ex.id;
+            opt.textContent = `${ex.course_code} - ${ex.room} (${ex.exam_date} ${ex.exam_time})`;
+            select.appendChild(opt);
+          });
+        } catch (err) {
+          console.error("Failed to load exams", err);
+        }
+      }
+      loadExams();
+
+      const tierLabel = { 1: "Tier 1", 2: "Tier 2" };
+
+      document.getElementById("examSelect").addEventListener("change", async (e) => {
+        const examId = e.target.value;
+        const tbody = document.getElementById("listBody");
+        if (!examId) {
+          tbody.innerHTML = '<tr><td colspan="5">Select an exam to view its exception list.</td></tr>';
+          return;
+        }
+        tbody.innerHTML = '<tr><td colspan="5">Loading...</td></tr>';
+        try {
+          const reports = await API.request(`/reports/exception-list/${examId}`);
+          if (reports.length === 0) {
+            tbody.innerHTML = '<tr><td colspan="5">No pre-registered reports for this exam.</td></tr>';
+            return;
+          }
+          tbody.innerHTML = reports.map(r => `
+            <tr>
+              <td>${r.card_owner_reg_no}</td>
+              <td>${r.report_type}</td>
+              <td><span class="badge badge-tier${r.tier}">${tierLabel[r.tier] || r.tier}</span></td>
+              <td>${r.location || "-"}</td>
+              <td>${new Date(r.created_at).toLocaleString()}</td>
+            </tr>
+          `).join("");
+        } catch (err) {
+          tbody.innerHTML = '<tr><td colspan="5">Failed to load exception list.</td></tr>';
+        }
+      });
+    }
+  </script>
+</body>
+</html>

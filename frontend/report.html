@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Report ID - MUST Exam Entry Verification System</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <nav class="topbar">
+    <a href="/dashboard" style="color:#fff;">&larr; Dashboard</a>
+    <span>Report ID Card</span>
+  </nav>
+
+  <div class="container">
+    <div class="card">
+      <h1>Report Lost / Forgotten ID</h1>
+      <p class="subtitle">Submit this as early as possible before your exam so your report can be processed at the right tier.</p>
+
+      <form id="reportForm">
+        <label for="card_owner_reg_no">Registration Number (ID owner)</label>
+        <input type="text" id="card_owner_reg_no" placeholder="e.g. MUST/CS/2024/001" required>
+
+        <label for="exam_id">Exam</label>
+        <select id="exam_id" required>
+          <option value="">Loading exams...</option>
+        </select>
+
+        <label for="report_type">Report Type</label>
+        <select id="report_type">
+          <option value="lost">Lost (location unknown)</option>
+          <option value="forgotten">Forgotten (location known, e.g. left at home/hostel)</option>
+        </select>
+
+        <label for="location">Location (optional)</label>
+        <input type="text" id="location" placeholder="e.g. Left at hostel room B12">
+
+        <label for="description">Description (optional)</label>
+        <textarea id="description" rows="3" placeholder="Any extra details"></textarea>
+
+        <label style="display:flex; align-items:center; gap:8px; margin-top:16px; font-weight:normal;">
+          <input type="checkbox" id="declaration_confirmed" style="width:auto;" required>
+          I confirm this report is true and accurate. I understand that a false report may lead to disciplinary action.
+        </label>
+
+        <div class="error-msg" id="errorMsg"></div>
+        <div class="success-msg" id="successMsg"></div>
+        <button type="submit">Submit Report</button>
+      </form>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    API.requireAuth();
+
+    async function loadExams() {
+      const select = document.getElementById("exam_id");
+      try {
+        const exams = await API.request("/exams/");
+        if (exams.length === 0) {
+          select.innerHTML = '<option value="">No exams available</option>';
+          return;
+        }
+        select.innerHTML = exams.map(ex =>
+          `<option value="${ex.id}">${ex.course_code} - ${ex.room} (${ex.exam_date} ${ex.exam_time})</option>`
+        ).join("");
+      } catch (err) {
+        select.innerHTML = '<option value="">Failed to load exams</option>';
+      }
+    }
+    loadExams();
+
+    document.getElementById("reportForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errorMsg = document.getElementById("errorMsg");
+      const successMsg = document.getElementById("successMsg");
+      errorMsg.style.display = "none";
+      successMsg.style.display = "none";
+
+      const payload = {
+        card_owner_reg_no: document.getElementById("card_owner_reg_no").value,
+        exam_id: parseInt(document.getElementById("exam_id").value),
+        report_type: document.getElementById("report_type").value,
+        declaration_confirmed: document.getElementById("declaration_confirmed").checked,
+        location: document.getElementById("location").value || null,
+        description: document.getElementById("description").value || null
+      };
+
+      try {
+        const report = await API.request("/reports/", {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
+        successMsg.textContent = `Report submitted successfully. Tier: ${report.tier}. Redirecting to dashboard...`;
+        successMsg.style.display = "block";
+        setTimeout(() => window.location.href = "/dashboard", 2000);
+      } catch (err) {
+        errorMsg.textContent = err.data?.detail || "Failed to submit report.";
+        errorMsg.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>

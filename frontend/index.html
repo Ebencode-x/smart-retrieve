@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - MUST Exam Entry Verification System</title>
+  <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Welcome Back</h1>
+      <p class="subtitle">MUST Exam Entry Verification System</p>
+
+      <form id="loginForm">
+        <label for="email">Email</label>
+        <input type="email" id="email" required>
+
+        <label for="password">Password</label>
+        <input type="password" id="password" required>
+
+        <div class="error-msg" id="errorMsg"></div>
+        <button type="submit">Log In</button>
+      </form>
+
+      <div class="link-row">
+        Don't have an account? <a href="/register">Register</a>
+      </div>
+    </div>
+  </div>
+
+  <script src="/static/js/api.js"></script>
+  <script>
+    document.getElementById("loginForm").addEventListener("submit", async (e) => {
+      e.preventDefault();
+      const errorMsg = document.getElementById("errorMsg");
+      errorMsg.style.display = "none";
+
+      const email = document.getElementById("email").value;
+      const password = document.getElementById("password").value;
+
+      try {
+        const data = await API.request("/auth/login", {
+          method: "POST",
+          body: JSON.stringify({ email, password })
+        });
+        API.setToken(data.access_token);
+        const decoded = decodeJWT(data.access_token);
+        API.setRole(decoded.role);
+        window.location.href = "/dashboard";
+      } catch (err) {
+        errorMsg.textContent = err.data?.detail || "Login failed. Please check your credentials.";
+        errorMsg.style.display = "block";
+      }
+    });
+  </script>
+</body>
+</html>
