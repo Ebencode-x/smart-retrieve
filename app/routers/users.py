@@ -5,9 +5,10 @@ from sqlalchemy.exc import IntegrityError
 from io import BytesIO
 from app.database import get_db
 from app.models import User
-from app.schemas import UserOut, RoleUpdate, ProfileUpdate
+from app.schemas import UserOut, RoleUpdate, ProfileUpdate, validate_student_regno
 from app.security import hash_password
 from app.dependencies import require_role, get_current_user
+from app.models import UserRole
 
 router = APIRouter(prefix="/users", tags=["users"])
 
@@ -74,6 +75,19 @@ def admin_update_user(
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
     data = payload.model_dump(exclude_unset=True)
+
+    if "registration_number" in data and user.role == UserRole.student:
+        try:
+            validate_student_regno(data["registration_number"])
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=str(e))
+    if "registration_number" in data:
+        clash = db.query(User).filter(
+            User.registration_number == data["registration_number"], User.id != user_id
+        ).first()
+        if clash:
+            raise HTTPException(status_code=400, detail="Registration number already in use by another user")
+
     if data.get("password"):
         user.hashed_password = hash_password(data.pop("password"))
     else:
