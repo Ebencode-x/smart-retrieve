@@ -1,0 +1,26 @@
+diff --git a/backend/app.py b/backend/app.py
+index 9e29dd6..111ada3 100644
+--- a/backend/app.py
++++ b/backend/app.py
+@@ -1,5 +1,6 @@
+ from flask import Flask, jsonify
+ from flask_cors import CORS
++from sqlalchemy import text
+ 
+ from config import Config
+ from models import db
+@@ -22,7 +23,13 @@ def create_app():
+ 
+     @app.get("/api/health")
+     def health():
+-        return jsonify({"status": "ok"}), 200
++        # Touches the DB (not just the app) so a keep-alive ping also stops
++        # the Supabase free-tier project from auto-pausing due to inactivity.
++        try:
++            db.session.execute(text("SELECT 1"))
++            return jsonify({"status": "ok", "db": "ok"}), 200
++        except Exception:
++            return jsonify({"status": "ok", "db": "unreachable"}), 200
+ 
+     return app
+ 

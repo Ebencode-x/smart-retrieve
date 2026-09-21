@@ -1,8 +1,11 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, Request, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.middleware.cors import CORSMiddleware
+from sqlalchemy import text
+from sqlalchemy.orm import Session
 from app.routers import auth, reports, passes, exams, users
+from app.database import get_db
 
 app = FastAPI(
     title="MUST Exam Entry Verification System",
@@ -30,8 +33,14 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 templates = Jinja2Templates(directory="app/templates")
 
 @app.get("/health")
-def health():
-    return {"status": "ok"}
+def health(db: Session = Depends(get_db)):
+    """Touches the DB (not just the app) so a keep-alive ping also stops
+    the Supabase free-tier project from auto-pausing due to inactivity."""
+    try:
+        db.execute(text("SELECT 1"))
+        return {"status": "ok", "db": "ok"}
+    except Exception:
+        return {"status": "ok", "db": "unreachable"}
 
 @app.get("/")
 def page_login(request: Request):

@@ -1,0 +1,17 @@
+name: Keep backends awake
+
+on:
+  schedule:
+    # Every 10 minutes. GitHub may delay this slightly under load, which is fine.
+    - cron: "*/10 * * * *"
+  workflow_dispatch: {}
+
+jobs:
+  ping:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Ping smart-retrieve health endpoint
+        run: curl -sf https://smart-temporary-exam-entry-var.onrender.com/health
+
+      - name: Ping Iyungass health endpoint
+        run: curl -sf https://iyungass.onrender.com/api/health
